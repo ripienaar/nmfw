@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package calc;
+
+option go_package = "github.com/ripienaar/nmfw/example/service";
+
+message AddRequest {
+  repeated float Values = 1;
+}
+
+message AverageRequest {
+    repeated float Values = 1;
+}
+
+message ExpressionRequest {
+  string Expression =1;
+}
+
+message CalcResponse {
+  string Operation =1;
+  float Result=2;
+}
+
+service Calc {
+  // Calculates the average of a series of numbers
+  rpc Average(AverageRequest) returns (CalcResponse) {}
+
+  // Calculates the sum of a series of numbers
+  rpc Add(AddRequest) returns (CalcResponse) {}
+
+  // Compiles and executes a expr expression, expression must return a number
+  rpc Expression(ExpressionRequest) returns (CalcResponse) {}
+}

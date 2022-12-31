@@ -61,24 +61,30 @@ service Calc {
 }
 ```
 
-Calling `protoc` will build a number of files that implement the go microservice:
+I suggest using the `ripienaar/nmfw` docker container that holds the dependencies already to run `protoc`
 
-**NOTE**: You can use the `ripienaar/nmfw` docker container that holds the dependencies already
-
-```nohighlight
-$ go install google.golang.org/protobuf/cmd/protoc-gen-go@latest     
-$ go install github.com/ripienaar/nmfw/protoc-gen-go-nmfw@latest
-$ protoc -I=`pwd`/ \
-    --go_out=/Users/rip/go/src \
-    --go-nmfw_opt=version=0.0.2,impl=github.com/ripienaar/nmfw/example/impl \
-    --go-nmfw_out=/Users/rip/go/src \
-    service.proto
+```
+$ docker run --ti --rm -v `pwd`/go/src ripienaar/nmfw:latest
+# export VERSION=0.0.2
+# export IMPL=github.com/ripienaar/nmfw/example/impl
+# export TARGET=service
+# export PROTO=service.proto
+# protoc -I=`pwd`/ \
+    --go_out="/go/src/${TARGET?}" \
+    --go_opt=paths=source_relative \
+    --go-nmfw_opt="paths=source_relative,version=${VERSION?},impl=${IMPL?}" \
+    --go-nmfw_out="/go/src/${TARGET}" \
+    "${PROTO?}"
+# exit
 ```
 
- * Generates data types using standard `protoc-gen-go` plugin
- * Generates a service called `CalcService` that binds to the Tech Preview [NATS Micro](https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-32.md) system in `nats.go`
- * Generates a command called `calc` that runs the service
- * Generates a client called `CalcClient` that can interact with the service
+ * Generates data types using standard `protoc-gen-go` plugin info `/go/src/service`
+ * Generates a service called `CalcService` that binds to the Tech Preview [NATS Micro](https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-32.md) system in `nats.go` into `/go/src/service`
+ * Generates a command called `calc` that runs the service with version `0.0.2` in `/go/src/service/calc`
+ * Generates a client called `CalcClient` that can interact with the service into `/go/src/service`
+ * Requires the user to create implementation methods in `github.com/ripienaar/nmfw/example/impl`
+
+**NOTE** This is how the `example` directory in this repository was created
 
 Once generated the client can be used to call the service:
 

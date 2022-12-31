@@ -60,7 +60,7 @@ func main() {
 }
 
 func generatePromStats(gen *protogen.Plugin, file *protogen.File) {
-	filename := fmt.Sprintf("%s_mfw_stats.pb.go", file.GeneratedFilenamePrefix)
+	filename := fmt.Sprintf("%s_nmfw_stats.pb.go", file.GeneratedFilenamePrefix)
 	g := gen.NewGeneratedFile(filename, file.GoImportPath)
 
 	buf := bytes.NewBuffer([]byte{})
@@ -89,7 +89,7 @@ func generateService(gen *protogen.Plugin, file *protogen.File) {
 	generatePromStats(gen, file)
 
 	for _, s := range file.Services {
-		filename := fmt.Sprintf("%s_mfw_svc_%s.pb.go", file.GeneratedFilenamePrefix, strings.ToLower(s.GoName))
+		filename := fmt.Sprintf("%s_nmfw_svc_%s.pb.go", file.GeneratedFilenamePrefix, strings.ToLower(s.GoName))
 		g := gen.NewGeneratedFile(filename, file.GoImportPath)
 
 		buf := bytes.NewBuffer([]byte{})

@@ -8,17 +8,17 @@ import (
 
 var (
 	handlerRuntime = prometheus.NewSummaryVec(prometheus.SummaryOpts{
-		Name: "mwf_handler_runtime",
+		Name: "nmfw_handler_runtime",
 		Help: "Time the handler took to process",
 	}, []string{"service", "function"})
 
 	errorsCtr = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "mwf_errors",
+		Name: "nmfw_errors",
 		Help: "Times errors were encountered",
 	}, []string{"service", "function"})
 
 	handlerErrorsCtr = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "mwf_handler_errors",
+		Name: "nmfw_handler_errors",
 		Help: "Times handler errors were encountered",
 	}, []string{"service", "function"})
 )

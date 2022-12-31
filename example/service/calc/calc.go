@@ -121,7 +121,7 @@ func runAction(_ *fisk.ParseContext) error {
 		Name:        "calc",
 		Version:     "0.0.2",
 		Description: "Sample calculator service",
-		RootSubject: "mfw.calc",
+		RootSubject: "nmfw.calc",
 		Log:         log,
 
 		AverageHandler:    impl.AverageHandler,

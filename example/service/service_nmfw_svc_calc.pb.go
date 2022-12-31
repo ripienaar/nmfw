@@ -286,7 +286,7 @@ func (c *CalcClient) Average(ctx context.Context, req AverageRequest) (*CalcResp
 	to, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "mfw.calc.Average", rb)
+	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.Average", rb)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +312,7 @@ func (c *CalcClient) Add(ctx context.Context, req AddRequest) (*CalcResponse, er
 	to, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "mfw.calc.Add", rb)
+	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.Add", rb)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +338,7 @@ func (c *CalcClient) Expression(ctx context.Context, req ExpressionRequest) (*Ca
 	to, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "mfw.calc.Expression", rb)
+	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.Expression", rb)
 	if err != nil {
 		return nil, err
 	}

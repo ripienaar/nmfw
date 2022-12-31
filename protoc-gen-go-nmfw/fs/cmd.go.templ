@@ -121,7 +121,7 @@ func runAction(_ *fisk.ParseContext) error {
 		Name:           "{{.service.GoName | toLower}}",
 		Version:        "{{ .version }}",
 		Description:    "Sample calculator service",
-		RootSubject:    "mfw.{{.service.GoName | toLower}}",
+		RootSubject:    "nmfw.{{.service.GoName | toLower}}",
 		Log:            log,
 {{ range .service.Methods }}
 		{{ .GoName }}Handler: impl.{{ .GoName }}Handler,

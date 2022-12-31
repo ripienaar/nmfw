@@ -140,7 +140,7 @@ func (c *{{ $svcTypeName }}Client) {{.GoName}}(ctx context.Context, req {{ .Inpu
 	to, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "mfw.calc.{{ .GoName }}", rb)
+	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.{{ .GoName }}", rb)
 	if err != nil {
 		return nil, err
 	}

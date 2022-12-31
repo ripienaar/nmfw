@@ -18,14 +18,14 @@ This is a exploration of how such a framework might look, it would leverage NATS
 
  * Requires standard go types generated using `protoc-gen-go`
  * Creates a service type that hosts the microservice
- * Creates a CLI tool that services the microservice
+ * Creates a CLI tool that runs the microservice
  * Microservice can optionally export Prometheus metrics
  * Creates a Client class that can interact with the service
  * Service handlers are pure business logic and transport agnostic
 
 ## Status
 
-This is very early days, it was written primarily to see if it's possible to create a gRPC like
+This is very early days, it was written primarily to see if it's possible to create a [gRPC](https://grpc.io/) like
 service framework using the NATS Micro feature.
 
 At present each function in the service runs as an isolated service, this is not ideal and this
@@ -112,6 +112,9 @@ There are some limitations at present given the young age of this project:
  * More observability, possibly propagate tracing headers
  * Generate a Dockerfile to host the service
  * Generate `Makefile` or similar to rebuild the generated code and containers
+ * One `micro` per Service
+ * Think about timeout, some functions have different timeouts than others, how to handle?
+ * Include the proto schema and expose over the `micro` schemas feature
 
 ## Contact
 

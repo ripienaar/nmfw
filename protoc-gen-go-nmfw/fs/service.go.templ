@@ -1,0 +1,160 @@
+// Code generated using Nats Micro Service Framework version {{.generatorVersion}}
+
+package {{ .file.GoPackageName }}
+
+import (
+        "context"
+        "fmt"
+        "sync"
+        "time"
+
+        "github.com/nats-io/nats.go"
+        "github.com/nats-io/nats.go/micro"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
+        "google.golang.org/protobuf/proto"
+)
+
+{{$svcTypeName:=.service.GoName}}
+
+{{range .service.Methods}}
+{{ if .Comments.Leading }}{{ .Comments.Leading }}{{ end -}}
+type {{ .GoName }}Handler func({{ .Input.GoIdent | QualifiedGoIdent }}) (*{{ .Output.GoIdent | QualifiedGoIdent }}, error)
+{{- end }}
+
+type {{ $svcTypeName }}Service struct {
+	Name              string
+	Version           string
+	Description       string
+	RootSubject       string
+	Log               *logrus.Entry
+{{range .service.Methods}}
+        {{ .GoName}}Handler {{.GoName}}Handler
+{{- end }}
+}
+
+func (s *{{ $svcTypeName }}Service) Start(ctx context.Context, nc *nats.Conn) error {
+	wg := sync.WaitGroup{}
+
+{{range .service.Methods}}
+	wg.Add(1)
+	go s.start{{ .GoName }}Handler(ctx, &wg, nc)
+{{ end }}
+
+	wg.Wait()
+
+	return nil
+}
+
+{{range .service.Methods}}
+func (s *{{ $svcTypeName }}Service) start{{ .GoName }}Handler(ctx context.Context, wg *sync.WaitGroup, nc *nats.Conn) {
+	defer wg.Done()
+
+	name := fmt.Sprint(s.Name, "_{{ .GoName }}")
+	timer := handlerRuntime.WithLabelValues(s.Name, "{{ .GoName }}")
+	log := s.Log.WithField("function", "{{ .GoName }}")
+
+	svc, err := micro.AddService(nc, micro.Config{
+		Name:        name,
+		Version:     s.Version,
+		Description: s.Description,
+		ErrorHandler: func(service micro.Service, natsError *micro.NATSError) {
+			log.Errorf("Encountered an error: %v", natsError)
+			errorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+		},
+		Endpoint: micro.Endpoint{
+			Subject: fmt.Sprintf("%s.{{ .GoName }}", s.RootSubject),
+			Handler: func(req *micro.Request) {
+				obs := prometheus.NewTimer(timer)
+				defer obs.ObserveDuration()
+
+				log.Infof("Handling a request")
+
+				if s.{{ .GoName }}Handler == nil {
+					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+					req.Error("NO_IMPL", "not implemented", nil)
+					return
+				}
+
+				var pr {{ .Input.GoIdent | QualifiedGoIdent }}
+				err := proto.Unmarshal(req.Data(), &pr)
+				if err != nil {
+					log.Errorf("Unmarshaling request failed: %v", err)
+					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+					req.Error("REQ_INVALID", "invalid request", nil)
+					return
+				}
+
+				resp, err := s.{{ .GoName }}Handler(pr)
+				if err != nil {
+					log.Errorf("Handling request failed: %v", err)
+					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+					req.Error("ERROR", err.Error(), nil)
+					return
+				}
+
+				out, err := proto.Marshal(resp)
+				if err != nil {
+					log.Errorf("Marshaling request failed: %v", err)
+					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+					req.Error("ERROR", err.Error(), nil)
+					return
+				}
+
+				req.Respond(out)
+			},
+		},
+	})
+	if err != nil {
+		panic(fmt.Sprintf("{{ .GoName }} handler error: %v", err))
+	}
+
+	nfo := svc.Info()
+	log.Infof("Started on subject %s with ID %s", nfo.Subject, nfo.ID)
+
+	<-ctx.Done()
+	log.Infof("Shutting down on context")
+
+	svc.Stop()
+}
+{{end}}
+
+// {{ $svcTypeName }}Client is a client to the {{ $svcTypeName }}Service accessed over NATS
+type {{ $svcTypeName }}Client struct {
+	conn    *nats.Conn
+	timeout time.Duration
+}
+
+// New{{ $svcTypeName }}Client creates a new {{ $svcTypeName }}Service client using the supplied NATS Connection
+func New{{ $svcTypeName }}Client(nc *nats.Conn, timeout time.Duration) *{{ $svcTypeName }}Client {
+	return &{{ $svcTypeName }}Client{nc, timeout}
+}
+
+{{range .service.Methods}}
+func (c *{{ $svcTypeName }}Client) {{.GoName}}(ctx context.Context, req {{ .Input.GoIdent | QualifiedGoIdent }}) (*{{ .Output.GoIdent | QualifiedGoIdent }}, error) {
+	rb, err := proto.Marshal(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	to, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	srvResp, err := c.conn.RequestWithContext(to, "mfw.calc.{{ .GoName }}", rb)
+	if err != nil {
+		return nil, err
+	}
+
+	if eh := srvResp.Header.Get(micro.ErrorHeader); eh != "" {
+		return nil, fmt.Errorf(eh)
+	}
+
+	var res {{ .Output.GoIdent | QualifiedGoIdent }}
+	err = proto.Unmarshal(srvResp.Data, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+{{- end }}

@@ -37,6 +37,8 @@ which will be more efficient and easier to manage in reality.
 
 ## Example
 
+### Generating types, services and tools
+
 Given the proto file:
 
 ```protobuf
@@ -85,6 +87,73 @@ $ docker run --ti --rm -v `pwd`/go/src ripienaar/nmfw:latest
  * Requires the user to create implementation methods in `github.com/ripienaar/nmfw/example/impl`
 
 **NOTE** This is how the `example` directory in this repository was created
+
+### Implementation
+
+In this case we said our implementation will be in `github.com/ripienaar/nmfw/example/impl` and you will be shown which
+functions to create there.
+
+Here's an example for teh `Add()` function:
+
+```golang
+func AddHandler(req service.AddRequest) (*service.CalcResponse, error) {
+	resp := service.CalcResponse{Operation: "add"}
+	if len(req.Values) == 0 {
+		return &resp, nil
+	}
+
+	for _, v := range req.Values {
+		resp.Result += v
+	}
+
+	return &resp, nil
+}
+```
+### Running 
+
+The service host uses a NATS Context for connection properties, create it using `nats context` and then run the service after
+compiling it: in `service/calc`.
+
+```nohighlight
+$ cd service/calc
+$ go build
+$ ./calc --help
+usage: calc [<flags>] <command> [<args> ...]
+
+Micro Service powered by NATS Micro
+
+Commands:
+  run  Runs the service
+
+Global Flags:
+  --help     Show context-sensitive help
+  --version  Show application version.
+  --debug    Log at debug level ($DEBUG)
+  
+$ ./calc run --help
+usage: calc run [<flags>]
+
+Runs the service
+
+Flags:
+  --context="MICRO"  NATS Context to use for connection ($CONTEXT)
+  --port=PORT        Prometheus port for statistics ($PORT)
+  --max-recon=60     Maximum reconnection attempts ($MAX_RECON)
+```
+
+The command takes some flags for connection properties and logging, future versions will include tools to help administrators
+discover and introspect running instances.  We start Prometheus metrics on port `8222`
+
+```nohighlight
+$ ./calc run --context AUTH_CALLOUT --port 8222
+{"level":"info","msg":"Starting Prometheus listener on :8222/metrics","service":"calc","time":"2022-12-31T14:19:52+01:00","version":"0.0.2"}
+{"level":"info","msg":"Connected to nats://127.0.0.1:10222","service":"calc","time":"2022-12-31T14:19:52+01:00","version":"0.0.2"}
+{"function":"Expression","level":"info","msg":"Started on subject nmfw.calc.Expression with ID poB9M20P4GBUeK49wkCurR","service":"calc","time":"2022-12-31T14:19:52+01:00","version":"0.0.2"}
+{"function":"Average","level":"info","msg":"Started on subject nmfw.calc.Average with ID poB9M20P4GBUeK49wkCuxp","service":"calc","time":"2022-12-31T14:19:52+01:00","version":"0.0.2"}
+{"function":"Add","level":"info","msg":"Started on subject nmfw.calc.Add with ID poB9M20P4GBUeK49wkCuud","service":"calc","time":"2022-12-31T14:19:52+01:00","version":"0.0.2"}
+```
+
+### Client
 
 Once generated the client can be used to call the service:
 

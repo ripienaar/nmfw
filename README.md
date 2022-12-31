@@ -63,13 +63,15 @@ service Calc {
 
 Calling `protoc` will build a number of files that implement the go microservice:
 
+**NOTE**: You can use the `ripienaar/nmfw` docker container that holds the dependencies already
+
 ```nohighlight
 $ go install google.golang.org/protobuf/cmd/protoc-gen-go@latest     
 $ go install github.com/ripienaar/nmfw/protoc-gen-go-nmfw@latest
 $ protoc -I=`pwd`/ \
     --go_out=/Users/rip/go/src \
-    --go-mfw_opt=version=0.0.2,impl=github.com/ripienaar/nmfw/example/impl \
-    --go-mfw_out=/Users/rip/go/src \
+    --go-nmfw_opt=version=0.0.2,impl=github.com/ripienaar/nmfw/example/impl \
+    --go-nmfw_out=/Users/rip/go/src \
     service.proto
 ```
 

@@ -15,23 +15,12 @@ import (
 
 //go:embed fs
 var FS embed.FS
+
 var Version = "development"
 
 var (
 	implPath *string
 	version  *string
-
-	statusPackage          = protogen.GoImportPath("google.golang.org/grpc/status")
-	anypbPackage           = protogen.GoImportPath("google.golang.org/protobuf/types/known/anypb")
-	apipbPackage           = protogen.GoImportPath("google.golang.org/protobuf/types/known/apipb")
-	durationpbPackage      = protogen.GoImportPath("google.golang.org/protobuf/types/known/durationpb")
-	emptypbPackage         = protogen.GoImportPath("google.golang.org/protobuf/types/known/emptypb")
-	fieldmaskpbPackage     = protogen.GoImportPath("google.golang.org/protobuf/types/known/fieldmaskpb")
-	sourcecontextpbPackage = protogen.GoImportPath("google.golang.org/protobuf/types/known/sourcecontextpb")
-	structpbPackage        = protogen.GoImportPath("google.golang.org/protobuf/types/known/structpb")
-	timestamppbPackage     = protogen.GoImportPath("google.golang.org/protobuf/types/known/timestamppb")
-	typepbPackage          = protogen.GoImportPath("google.golang.org/protobuf/types/known/typepb")
-	wrapperspbPackage      = protogen.GoImportPath("google.golang.org/protobuf/types/known/wrapperspb")
 )
 
 func main() {

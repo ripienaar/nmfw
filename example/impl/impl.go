@@ -1,6 +1,7 @@
 package impl
 
 import (
+	"context"
 	"fmt"
 	"math"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/ripienaar/nmfw/example/service"
 )
 
-func AverageHandler(req service.AverageRequest) (*service.CalcResponse, error) {
+func AverageHandler(_ context.Context, req service.AverageRequest) (*service.CalcResponse, error) {
 	resp := service.CalcResponse{Operation: "average"}
 	if len(req.Values) == 0 {
 		return &resp, nil
@@ -23,7 +24,7 @@ func AverageHandler(req service.AverageRequest) (*service.CalcResponse, error) {
 	return &resp, nil
 }
 
-func AddHandler(req service.AddRequest) (*service.CalcResponse, error) {
+func AddHandler(_ context.Context, req service.AddRequest) (*service.CalcResponse, error) {
 	resp := service.CalcResponse{Operation: "add"}
 	if len(req.Values) == 0 {
 		return &resp, nil
@@ -36,7 +37,7 @@ func AddHandler(req service.AddRequest) (*service.CalcResponse, error) {
 	return &resp, nil
 }
 
-func ExpressionHandler(req service.ExpressionRequest) (*service.CalcResponse, error) {
+func ExpressionHandler(_ context.Context, req service.ExpressionRequest) (*service.CalcResponse, error) {
 	program, err := expr.Compile(req.Expression)
 	if err != nil {
 		return nil, err

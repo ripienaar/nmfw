@@ -15,11 +15,13 @@ var (
 	contextName string
 	values      []float32
 	expression  string
+	timeOut     time.Duration
 )
 
 func main() {
 	app := fisk.New("calc", "NATS Calculator Service Client")
 	app.Flag("context", "NATS Context to use for connection").Envar("CONTEXT").Default("MICRO").StringVar(&contextName)
+	app.Flag("timeout", "How long to wait for responses").Envar("TIMEOUT").Default("5s").DurationVar(&timeOut)
 
 	add := app.Command("add", "Adds a series of numbers").Alias("+").Action(addAction)
 	add.Arg("numbers", "Numbers to add").Float32ListVar(&values)
@@ -39,7 +41,7 @@ func client(cb func(client *service.CalcClient) error) error {
 		return err
 	}
 
-	c := service.NewCalcClient(nc, 5*time.Second)
+	c := service.NewCalcClient(nc, timeOut)
 
 	return cb(c)
 }

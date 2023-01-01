@@ -1,6 +1,8 @@
 # NATS Micro Service Framework
 
-This is a framework powered by NATS Micro that generates a microservice from a Protobuf service definition.
+This is a framework powered by NATS Micro that generates a microservice from a Protobuf service definition. The goal is
+to go from `service.proto` to running a service in 5 minutes after supplying transport agnostic business logic requiring
+little or no NATS knowledge.
 
 Using NATS as a Microservice transport has significant advantages over HTTP but there has not really
 been a good effort made to leverage those features into a gRPC like framework. 
@@ -22,6 +24,7 @@ This is a exploration of how such a framework might look, it would leverage NATS
  * Microservice can optionally export Prometheus metrics
  * Creates a Client class that can interact with the service
  * Service handlers are pure business logic and transport agnostic
+ * Timeouts are propagated from Client to Service
 
 ## Status
 
@@ -96,7 +99,7 @@ functions to create there.
 Here's an example for teh `Add()` function:
 
 ```golang
-func AddHandler(req service.AddRequest) (*service.CalcResponse, error) {
+func AddHandler(ctx context.Context, req service.AddRequest) (*service.CalcResponse, error) {
 	resp := service.CalcResponse{Operation: "add"}
 	if len(req.Values) == 0 {
 		return &resp, nil
@@ -109,6 +112,9 @@ func AddHandler(req service.AddRequest) (*service.CalcResponse, error) {
 	return &resp, nil
 }
 ```
+
+The context will have a deadline set which is propagated from the timeout supplied by the client.
+
 ### Running 
 
 The service host uses a NATS Context for connection properties, create it using `nats context` and then run the service after
@@ -190,7 +196,7 @@ There are some limitations at present given the young age of this project:
  * Generate a Dockerfile to host the service
  * Generate `Makefile` or similar to rebuild the generated code and containers
  * One `micro` per Service
- * Think about timeout, some functions have different timeouts than others, how to handle?
+ * ~~Think about timeout, some functions have different timeouts than others, how to handle?~~ Propagated using the `Nmfw-Deadline` header and passed to handlers as a context.Context.
  * Include the proto schema and expose over the `micro` schemas feature
 
 ## Contact

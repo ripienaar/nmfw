@@ -19,7 +19,7 @@ import (
 
 {{range .service.Methods}}
 {{ if .Comments.Leading }}{{ .Comments.Leading }}{{ end -}}
-type {{ .GoName }}Handler func({{ .Input.GoIdent | QualifiedGoIdent }}) (*{{ .Output.GoIdent | QualifiedGoIdent }}, error)
+type {{ .GoName }}Handler func(context.Context, {{ .Input.GoIdent | QualifiedGoIdent }}) (*{{ .Output.GoIdent | QualifiedGoIdent }}, error)
 {{- end }}
 
 type {{ $svcTypeName }}Service struct {
@@ -85,7 +85,19 @@ func (s *{{ $svcTypeName }}Service) start{{ .GoName }}Handler(ctx context.Contex
 					return
 				}
 
-				resp, err := s.{{ .GoName }}Handler(pr)
+				deadline := time.Now().Add(5 * time.Second)
+				ds := req.Headers().Get("Nmfw-Deadline")
+				if ds != "" {
+					deadline, err = time.Parse(time.RFC3339, ds)
+					if err != nil {
+						log.Errorf("Invalid deadline in request: %v", err)
+					}
+				}
+				log.Debugf("Allowing %v for call to handler", time.Until(deadline))
+				to, cancel := context.WithDeadline(ctx, deadline)
+				defer cancel()
+
+				resp, err := s.{{ .GoName }}Handler(to, pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
@@ -101,7 +113,12 @@ func (s *{{ $svcTypeName }}Service) start{{ .GoName }}Handler(ctx context.Contex
 					return
 				}
 
-				req.Respond(out)
+				err = req.Respond(out)
+				if err != nil {
+					log.Errorf("Publishing response failed: %v", err)
+					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+					return
+				}
 			},
 		},
 	})
@@ -126,8 +143,8 @@ type {{ $svcTypeName }}Client struct {
 }
 
 // New{{ $svcTypeName }}Client creates a new {{ $svcTypeName }}Service client using the supplied NATS Connection
-func New{{ $svcTypeName }}Client(nc *nats.Conn, timeout time.Duration) *{{ $svcTypeName }}Client {
-	return &{{ $svcTypeName }}Client{nc, timeout}
+func New{{ $svcTypeName }}Client(nc *nats.Conn, defaultTimeout time.Duration) *{{ $svcTypeName }}Client {
+	return &{{ $svcTypeName }}Client{nc, defaultTimeout}
 }
 
 {{range .service.Methods}}
@@ -137,10 +154,19 @@ func (c *{{ $svcTypeName }}Client) {{.GoName}}(ctx context.Context, req {{ .Inpu
 		return nil, err
 	}
 
-	to, cancel := context.WithTimeout(ctx, c.timeout)
+	// default to client default timeout but let the context override
+	deadline, ok := ctx.Deadline()
+	if !ok || deadline.IsZero() {
+		deadline = time.Now().Add(c.timeout)
+	}
+	to, cancel := context.WithTimeout(ctx, time.Until(deadline))
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.{{ .GoName }}", rb)
+	msg := nats.NewMsg("nmfw.calc.{{ .GoName }}")
+	msg.Data = rb
+	msg.Header.Add("Nmfw-Deadline", deadline.Format(time.RFC3339))
+
+	srvResp, err := c.conn.RequestMsgWithContext(to, msg)
 	if err != nil {
 		return nil, err
 	}

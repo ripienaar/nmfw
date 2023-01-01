@@ -16,13 +16,13 @@ import (
 )
 
 // Calculates the average of a series of numbers
-type AverageHandler func(AverageRequest) (*CalcResponse, error)
+type AverageHandler func(context.Context, AverageRequest) (*CalcResponse, error)
 
 // Calculates the sum of a series of numbers
-type AddHandler func(AddRequest) (*CalcResponse, error)
+type AddHandler func(context.Context, AddRequest) (*CalcResponse, error)
 
 // Compiles and executes a expr expression, expression must return a number
-type ExpressionHandler func(ExpressionRequest) (*CalcResponse, error)
+type ExpressionHandler func(context.Context, ExpressionRequest) (*CalcResponse, error)
 
 type CalcService struct {
 	Name        string
@@ -91,7 +91,19 @@ func (s *CalcService) startAverageHandler(ctx context.Context, wg *sync.WaitGrou
 					return
 				}
 
-				resp, err := s.AverageHandler(pr)
+				deadline := time.Now().Add(5 * time.Second)
+				ds := req.Headers().Get("Nmfw-Deadline")
+				if ds != "" {
+					deadline, err = time.Parse(time.RFC3339, ds)
+					if err != nil {
+						log.Errorf("Invalid deadline in request: %v", err)
+					}
+				}
+				log.Debugf("Allowing %v for call to handler", time.Until(deadline))
+				to, cancel := context.WithDeadline(ctx, deadline)
+				defer cancel()
+
+				resp, err := s.AverageHandler(to, pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "Average").Inc()
@@ -107,7 +119,12 @@ func (s *CalcService) startAverageHandler(ctx context.Context, wg *sync.WaitGrou
 					return
 				}
 
-				req.Respond(out)
+				err = req.Respond(out)
+				if err != nil {
+					log.Errorf("Publishing response failed: %v", err)
+					handlerErrorsCtr.WithLabelValues(s.Name, "Average").Inc()
+					return
+				}
 			},
 		},
 	})
@@ -162,7 +179,19 @@ func (s *CalcService) startAddHandler(ctx context.Context, wg *sync.WaitGroup, n
 					return
 				}
 
-				resp, err := s.AddHandler(pr)
+				deadline := time.Now().Add(5 * time.Second)
+				ds := req.Headers().Get("Nmfw-Deadline")
+				if ds != "" {
+					deadline, err = time.Parse(time.RFC3339, ds)
+					if err != nil {
+						log.Errorf("Invalid deadline in request: %v", err)
+					}
+				}
+				log.Debugf("Allowing %v for call to handler", time.Until(deadline))
+				to, cancel := context.WithDeadline(ctx, deadline)
+				defer cancel()
+
+				resp, err := s.AddHandler(to, pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "Add").Inc()
@@ -178,7 +207,12 @@ func (s *CalcService) startAddHandler(ctx context.Context, wg *sync.WaitGroup, n
 					return
 				}
 
-				req.Respond(out)
+				err = req.Respond(out)
+				if err != nil {
+					log.Errorf("Publishing response failed: %v", err)
+					handlerErrorsCtr.WithLabelValues(s.Name, "Add").Inc()
+					return
+				}
 			},
 		},
 	})
@@ -233,7 +267,19 @@ func (s *CalcService) startExpressionHandler(ctx context.Context, wg *sync.WaitG
 					return
 				}
 
-				resp, err := s.ExpressionHandler(pr)
+				deadline := time.Now().Add(5 * time.Second)
+				ds := req.Headers().Get("Nmfw-Deadline")
+				if ds != "" {
+					deadline, err = time.Parse(time.RFC3339, ds)
+					if err != nil {
+						log.Errorf("Invalid deadline in request: %v", err)
+					}
+				}
+				log.Debugf("Allowing %v for call to handler", time.Until(deadline))
+				to, cancel := context.WithDeadline(ctx, deadline)
+				defer cancel()
+
+				resp, err := s.ExpressionHandler(to, pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "Expression").Inc()
@@ -249,7 +295,12 @@ func (s *CalcService) startExpressionHandler(ctx context.Context, wg *sync.WaitG
 					return
 				}
 
-				req.Respond(out)
+				err = req.Respond(out)
+				if err != nil {
+					log.Errorf("Publishing response failed: %v", err)
+					handlerErrorsCtr.WithLabelValues(s.Name, "Expression").Inc()
+					return
+				}
 			},
 		},
 	})
@@ -273,8 +324,8 @@ type CalcClient struct {
 }
 
 // NewCalcClient creates a new CalcService client using the supplied NATS Connection
-func NewCalcClient(nc *nats.Conn, timeout time.Duration) *CalcClient {
-	return &CalcClient{nc, timeout}
+func NewCalcClient(nc *nats.Conn, defaultTimeout time.Duration) *CalcClient {
+	return &CalcClient{nc, defaultTimeout}
 }
 
 func (c *CalcClient) Average(ctx context.Context, req AverageRequest) (*CalcResponse, error) {
@@ -283,10 +334,19 @@ func (c *CalcClient) Average(ctx context.Context, req AverageRequest) (*CalcResp
 		return nil, err
 	}
 
-	to, cancel := context.WithTimeout(ctx, c.timeout)
+	// default to client default timeout but let the context override
+	deadline, ok := ctx.Deadline()
+	if !ok || deadline.IsZero() {
+		deadline = time.Now().Add(c.timeout)
+	}
+	to, cancel := context.WithTimeout(ctx, time.Until(deadline))
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.Average", rb)
+	msg := nats.NewMsg("nmfw.calc.Average")
+	msg.Data = rb
+	msg.Header.Add("Nmfw-Deadline", deadline.Format(time.RFC3339))
+
+	srvResp, err := c.conn.RequestMsgWithContext(to, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -309,10 +369,19 @@ func (c *CalcClient) Add(ctx context.Context, req AddRequest) (*CalcResponse, er
 		return nil, err
 	}
 
-	to, cancel := context.WithTimeout(ctx, c.timeout)
+	// default to client default timeout but let the context override
+	deadline, ok := ctx.Deadline()
+	if !ok || deadline.IsZero() {
+		deadline = time.Now().Add(c.timeout)
+	}
+	to, cancel := context.WithTimeout(ctx, time.Until(deadline))
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.Add", rb)
+	msg := nats.NewMsg("nmfw.calc.Add")
+	msg.Data = rb
+	msg.Header.Add("Nmfw-Deadline", deadline.Format(time.RFC3339))
+
+	srvResp, err := c.conn.RequestMsgWithContext(to, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -335,10 +404,19 @@ func (c *CalcClient) Expression(ctx context.Context, req ExpressionRequest) (*Ca
 		return nil, err
 	}
 
-	to, cancel := context.WithTimeout(ctx, c.timeout)
+	// default to client default timeout but let the context override
+	deadline, ok := ctx.Deadline()
+	if !ok || deadline.IsZero() {
+		deadline = time.Now().Add(c.timeout)
+	}
+	to, cancel := context.WithTimeout(ctx, time.Until(deadline))
 	defer cancel()
 
-	srvResp, err := c.conn.RequestWithContext(to, "nmfw.calc.Expression", rb)
+	msg := nats.NewMsg("nmfw.calc.Expression")
+	msg.Data = rb
+	msg.Header.Add("Nmfw-Deadline", deadline.Format(time.RFC3339))
+
+	srvResp, err := c.conn.RequestMsgWithContext(to, msg)
 	if err != nil {
 		return nil, err
 	}

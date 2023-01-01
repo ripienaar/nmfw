@@ -97,7 +97,7 @@ func (s *{{ $svcTypeName }}Service) start{{ .GoName }}Handler(ctx context.Contex
 				to, cancel := context.WithDeadline(ctx, deadline)
 				defer cancel()
 
-				resp, err := s.{{ .GoName }}Handler(to, pr)
+				resp, err := s.{{ .GoName }}Handler(context.WithValue(to, "nmfw", &requestContext{log: log, nc: nc, req: req}), pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()

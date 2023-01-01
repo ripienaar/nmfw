@@ -3,8 +3,21 @@
 package service
 
 import (
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/micro"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 )
+
+type requestContext struct {
+	log *logrus.Entry
+	nc  *nats.Conn
+	req *micro.Request
+}
+
+func (r *requestContext) Logger() *logrus.Entry   { return r.log }
+func (r *requestContext) Conn() *nats.Conn        { return r.nc }
+func (r *requestContext) Request() *micro.Request { return r.req }
 
 var (
 	handlerRuntime = prometheus.NewSummaryVec(prometheus.SummaryOpts{

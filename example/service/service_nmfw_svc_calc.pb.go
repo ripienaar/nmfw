@@ -103,7 +103,7 @@ func (s *CalcService) startAverageHandler(ctx context.Context, wg *sync.WaitGrou
 				to, cancel := context.WithDeadline(ctx, deadline)
 				defer cancel()
 
-				resp, err := s.AverageHandler(to, pr)
+				resp, err := s.AverageHandler(context.WithValue(to, "nmfw", &requestContext{log: log, nc: nc, req: req}), pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "Average").Inc()
@@ -191,7 +191,7 @@ func (s *CalcService) startAddHandler(ctx context.Context, wg *sync.WaitGroup, n
 				to, cancel := context.WithDeadline(ctx, deadline)
 				defer cancel()
 
-				resp, err := s.AddHandler(to, pr)
+				resp, err := s.AddHandler(context.WithValue(to, "nmfw", &requestContext{log: log, nc: nc, req: req}), pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "Add").Inc()
@@ -279,7 +279,7 @@ func (s *CalcService) startExpressionHandler(ctx context.Context, wg *sync.WaitG
 				to, cancel := context.WithDeadline(ctx, deadline)
 				defer cancel()
 
-				resp, err := s.ExpressionHandler(to, pr)
+				resp, err := s.ExpressionHandler(context.WithValue(to, "nmfw", &requestContext{log: log, nc: nc, req: req}), pr)
 				if err != nil {
 					log.Errorf("Handling request failed: %v", err)
 					handlerErrorsCtr.WithLabelValues(s.Name, "Expression").Inc()

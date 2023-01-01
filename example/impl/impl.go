@@ -6,8 +6,17 @@ import (
 	"math"
 
 	"github.com/antonmedv/expr"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/micro"
 	"github.com/ripienaar/nmfw/example/service"
+	"github.com/sirupsen/logrus"
 )
+
+type request interface {
+	Logger() *logrus.Entry
+	Conn() *nats.Conn
+	Request() *micro.Request
+}
 
 func AverageHandler(_ context.Context, req service.AverageRequest) (*service.CalcResponse, error) {
 	resp := service.CalcResponse{Operation: "average"}
@@ -37,7 +46,10 @@ func AddHandler(_ context.Context, req service.AddRequest) (*service.CalcRespons
 	return &resp, nil
 }
 
-func ExpressionHandler(_ context.Context, req service.ExpressionRequest) (*service.CalcResponse, error) {
+func ExpressionHandler(ctx context.Context, req service.ExpressionRequest) (*service.CalcResponse, error) {
+	helper := ctx.Value("nmfw").(request)
+	helper.Logger().Infof("Calculating expression %s", req.Expression)
+
 	program, err := expr.Compile(req.Expression)
 	if err != nil {
 		return nil, err

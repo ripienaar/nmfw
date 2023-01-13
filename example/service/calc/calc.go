@@ -1,4 +1,4 @@
-// Code generated using Nats Micro Service Framework version development
+// Code generated using Nats Micro Service Framework version 10333f4459fab1d0f306e802b6a126a035fd2fed
 
 package main
 
@@ -80,6 +80,8 @@ func runAction(_ *fisk.ParseContext) error {
 		"service": "calc",
 		"version": "0.0.2",
 	})
+
+	log.Infof("Starting calc service based on nmfw version 10333f4459fab1d0f306e802b6a126a035fd2fed")
 
 	go interruptWatcher(ctx, cancel, log)
 

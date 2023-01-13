@@ -9,15 +9,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// NatsMicroServicesFrameworkVersion is the version of github.com/ripienaar/nmfw used to generate this service
+const NatsMicroServicesFrameworkVersion = "{{.generatorVersion}}"
+
 type requestContext struct {
 	log *logrus.Entry
 	nc  *nats.Conn
-	req *micro.Request
+	req micro.Request
+	cv  string
 }
 
 func (r *requestContext) Logger() *logrus.Entry  { return r.log }
 func (r *requestContext) Conn() *nats.Conn       { return r.nc }
-func (r *requestContext) Request() *micro.Request { return r.req }
+func (r *requestContext) Request() micro.Request { return r.req }
+func (r *requestContext) ClientVersion() string   { return r.cv }
 
 var (
 	handlerRuntime = prometheus.NewSummaryVec(prometheus.SummaryOpts{

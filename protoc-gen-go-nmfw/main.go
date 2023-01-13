@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"text/template"
 
@@ -28,6 +29,25 @@ func main() {
 
 	implPath = flags.String("impl", "", "Go import path to the handlers implementation")
 	version = flags.String("version", "", "Semver version of the service")
+
+	if Version == "development" {
+		nfo, ok := debug.ReadBuildInfo()
+		if ok {
+			rev := ""
+			for _, s := range nfo.Settings {
+				if s.Key == "vcs.revision" {
+					rev = s.Value
+				}
+			}
+			if rev == "" && nfo.Main.Version != "" {
+				rev = nfo.Main.Version
+			}
+
+			if rev != "" {
+				Version = rev
+			}
+		}
+	}
 
 	protogen.Options{
 		ParamFunc: flags.Set,
@@ -65,7 +85,9 @@ func generatePromStats(gen *protogen.Plugin, file *protogen.File) {
 	}
 
 	err = p.Execute(buf, map[string]any{
-		"file": file,
+		"file":             file,
+		"version":          version,
+		"generatorVersion": Version,
 	})
 	if err != nil {
 		panic(fmt.Sprintf("could not execute template: %v", err))

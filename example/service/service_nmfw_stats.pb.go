@@ -1,4 +1,4 @@
-// Code generated using Nats Micro Service Framework version <no value>
+// Code generated using Nats Micro Service Framework version 10333f4459fab1d0f306e802b6a126a035fd2fed
 
 package service
 
@@ -9,15 +9,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// NatsMicroServicesFrameworkVersion is the version of github.com/ripienaar/nmfw used to generate this service
+const NatsMicroServicesFrameworkVersion = "10333f4459fab1d0f306e802b6a126a035fd2fed"
+
 type requestContext struct {
 	log *logrus.Entry
 	nc  *nats.Conn
-	req *micro.Request
+	req micro.Request
+	cv  string
 }
 
-func (r *requestContext) Logger() *logrus.Entry   { return r.log }
-func (r *requestContext) Conn() *nats.Conn        { return r.nc }
-func (r *requestContext) Request() *micro.Request { return r.req }
+func (r *requestContext) Logger() *logrus.Entry  { return r.log }
+func (r *requestContext) Conn() *nats.Conn       { return r.nc }
+func (r *requestContext) Request() micro.Request { return r.req }
+func (r *requestContext) ClientVersion() string  { return r.cv }
 
 var (
 	handlerRuntime = prometheus.NewSummaryVec(prometheus.SummaryOpts{

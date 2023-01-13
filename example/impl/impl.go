@@ -15,7 +15,7 @@ import (
 type request interface {
 	Logger() *logrus.Entry
 	Conn() *nats.Conn
-	Request() *micro.Request
+	Request() micro.Request
 }
 
 func AverageHandler(_ context.Context, req service.AverageRequest) (*service.CalcResponse, error) {

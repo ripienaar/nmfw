@@ -1,4 +1,8 @@
-// Code generated using Nats Micro Service Framework version {{.generatorVersion}}
+{{ $svcTypeName:=.service.GoName }}
+{{ $serviceVersion:=.version}}
+{{ $nmfwVersion:=.generatorVersion -}}
+
+// Code generated using Nats Micro Service Framework version {{$nmfwVersion}}
 
 package {{ .file.GoPackageName }}
 
@@ -15,8 +19,6 @@ import (
         "google.golang.org/protobuf/proto"
 )
 
-{{$svcTypeName:=.service.GoName}}
-
 {{range .service.Methods}}
 {{ if .Comments.Leading }}{{ .Comments.Leading }}{{ end -}}
 type {{ .GoName }}Handler func(context.Context, {{ .Input.GoIdent | QualifiedGoIdent }}) (*{{ .Output.GoIdent | QualifiedGoIdent }}, error)
@@ -31,15 +33,18 @@ type {{ $svcTypeName }}Service struct {
 {{range .service.Methods}}
         {{ .GoName}}Handler {{.GoName}}Handler
 {{- end }}
+	ctx 	  	context.Context
+	nc *nats.Conn
 }
 
 func (s *{{ $svcTypeName }}Service) Start(ctx context.Context, nc *nats.Conn) error {
 	wg := sync.WaitGroup{}
 
-{{range .service.Methods}}
+	s.ctx = ctx
+	s.nc = nc
+
 	wg.Add(1)
-	go s.start{{ .GoName }}Handler(ctx, &wg, nc)
-{{ end }}
+	go s.start(&wg, nc)
 
 	wg.Wait()
 
@@ -47,94 +52,106 @@ func (s *{{ $svcTypeName }}Service) Start(ctx context.Context, nc *nats.Conn) er
 }
 
 {{range .service.Methods}}
-func (s *{{ $svcTypeName }}Service) start{{ .GoName }}Handler(ctx context.Context, wg *sync.WaitGroup, nc *nats.Conn) {
+func (s *{{ $svcTypeName }}Service) handle{{ .GoName }}(req micro.Request) {
+	obs := prometheus.NewTimer(handlerRuntime.WithLabelValues(s.Name, "{{ .GoName }}"))
+	defer obs.ObserveDuration()
+
+	log := s.Log.WithField("function", "{{ .GoName }}")
+	log.Infof("Handling a request")
+
+	if s.{{ .GoName }}Handler == nil {
+		handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+		req.Error("NO_IMPL", "not implemented", nil)
+		return
+	}
+
+	var pr {{ .Input.GoIdent | QualifiedGoIdent }}
+	err := proto.Unmarshal(req.Data(), &pr)
+	if err != nil {
+		log.Errorf("Unmarshaling request failed: %v", err)
+		handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+		req.Error("REQ_INVALID", "invalid request", nil)
+		return
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	ds := req.Headers().Get("Nmfw-Deadline")
+	if ds != "" {
+		deadline, err = time.Parse(time.RFC3339, ds)
+		if err != nil {
+			log.Errorf("Invalid deadline in request: %v", err)
+		}
+	}
+	log.Debugf("Allowing %v for call to handler", time.Until(deadline))
+	to, cancel := context.WithDeadline(s.ctx, deadline)
+	defer cancel()
+
+	client := req.Headers().Get("Nmfw-Client-Version")
+	rh := &requestContext{
+		log: log.WithField("client", client),
+		nc:  s.nc,
+		req: req,
+		cv:  client,
+	}
+
+	resp, err := s.{{ .GoName }}Handler(context.WithValue(to, "nmfw", rh), pr)
+	if err != nil {
+		log.Errorf("Handling request failed: %v", err)
+		handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+		req.Error("ERROR", err.Error(), nil)
+		return
+	}
+
+	out, err := proto.Marshal(resp)
+	if err != nil {
+		log.Errorf("Marshaling request failed: %v", err)
+		handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+		req.Error("ERROR", err.Error(), nil)
+		return
+	}
+
+	err = req.Respond(out)
+	if err != nil {
+		log.Errorf("Publishing response failed: %v", err)
+		handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
+		return
+	}
+}
+{{end}}
+
+func (s *{{ $svcTypeName }}Service) start(wg *sync.WaitGroup, nc *nats.Conn) {
 	defer wg.Done()
 
-	name := fmt.Sprint(s.Name, "_{{ .GoName }}")
-	timer := handlerRuntime.WithLabelValues(s.Name, "{{ .GoName }}")
-	log := s.Log.WithField("function", "{{ .GoName }}")
-
 	svc, err := micro.AddService(nc, micro.Config{
-		Name:        name,
+		Name:        s.Name,
 		Version:     s.Version,
 		Description: s.Description,
 		ErrorHandler: func(service micro.Service, natsError *micro.NATSError) {
-			log.Errorf("Encountered an error: %v", natsError)
+			s.Log.Errorf("Encountered an error: %v", natsError)
 			errorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
-		},
-		Endpoint: micro.Endpoint{
-			Subject: fmt.Sprintf("%s.{{ .GoName }}", s.RootSubject),
-			Handler: func(req *micro.Request) {
-				obs := prometheus.NewTimer(timer)
-				defer obs.ObserveDuration()
-
-				log.Infof("Handling a request")
-
-				if s.{{ .GoName }}Handler == nil {
-					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
-					req.Error("NO_IMPL", "not implemented", nil)
-					return
-				}
-
-				var pr {{ .Input.GoIdent | QualifiedGoIdent }}
-				err := proto.Unmarshal(req.Data(), &pr)
-				if err != nil {
-					log.Errorf("Unmarshaling request failed: %v", err)
-					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
-					req.Error("REQ_INVALID", "invalid request", nil)
-					return
-				}
-
-				deadline := time.Now().Add(5 * time.Second)
-				ds := req.Headers().Get("Nmfw-Deadline")
-				if ds != "" {
-					deadline, err = time.Parse(time.RFC3339, ds)
-					if err != nil {
-						log.Errorf("Invalid deadline in request: %v", err)
-					}
-				}
-				log.Debugf("Allowing %v for call to handler", time.Until(deadline))
-				to, cancel := context.WithDeadline(ctx, deadline)
-				defer cancel()
-
-				resp, err := s.{{ .GoName }}Handler(context.WithValue(to, "nmfw", &requestContext{log: log, nc: nc, req: req}), pr)
-				if err != nil {
-					log.Errorf("Handling request failed: %v", err)
-					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
-					req.Error("ERROR", err.Error(), nil)
-					return
-				}
-
-				out, err := proto.Marshal(resp)
-				if err != nil {
-					log.Errorf("Marshaling request failed: %v", err)
-					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
-					req.Error("ERROR", err.Error(), nil)
-					return
-				}
-
-				err = req.Respond(out)
-				if err != nil {
-					log.Errorf("Publishing response failed: %v", err)
-					handlerErrorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
-					return
-				}
-			},
 		},
 	})
 	if err != nil {
-		panic(fmt.Sprintf("{{ .GoName }} handler error: %v", err))
+		panic(fmt.Sprintf("could not create service: %v", err))
 	}
 
-	nfo := svc.Info()
-	log.Infof("Started on subject %s with ID %s", nfo.Subject, nfo.ID)
+	sg := svc.AddGroup("nmfw").AddGroup(s.Name)
+{{range .service.Methods}}
+	err = sg.AddEndpoint("{{.GoName}}", micro.HandlerFunc(s.handle{{ .GoName }}))
+	if err != nil {
+		panic(fmt.Sprintf("could not create endpoint {{.GoName}}: %v", err))
+	}
+{{end}}
 
-	<-ctx.Done()
-	log.Infof("Shutting down on context")
+	nfo := svc.Info()
+	s.Log.Infof("Started on subject %v with ID %s", nfo.Subjects, nfo.ID)
+
+	<-s.ctx.Done()
+	s.Log.Infof("Shutting down on context")
 
 	svc.Stop()
 }
-{{end}}
+
 
 // {{ $svcTypeName }}Client is a client to the {{ $svcTypeName }}Service accessed over NATS
 type {{ $svcTypeName }}Client struct {
@@ -165,6 +182,8 @@ func (c *{{ $svcTypeName }}Client) {{.GoName}}(ctx context.Context, req {{ .Inpu
 	msg := nats.NewMsg("nmfw.calc.{{ .GoName }}")
 	msg.Data = rb
 	msg.Header.Add("Nmfw-Deadline", deadline.Format(time.RFC3339))
+	msg.Header.Add("Nmfw-Version", "{{$nmfwVersion}}")
+	msg.Header.Add("Nmfw-Client-Version", "{{$serviceVersion}}")
 
 	srvResp, err := c.conn.RequestMsgWithContext(to, msg)
 	if err != nil {

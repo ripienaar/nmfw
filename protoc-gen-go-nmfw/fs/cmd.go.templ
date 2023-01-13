@@ -81,6 +81,8 @@ func runAction(_ *fisk.ParseContext) error {
 		"version": "{{.version}}",
 	})
 
+	log.Infof("Starting {{.service.GoName | toLower}} service based on nmfw version {{.generatorVersion}}")
+
 	go interruptWatcher(ctx, cancel, log)
 
 	if promPort > 0 {

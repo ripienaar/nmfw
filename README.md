@@ -31,13 +31,6 @@ This is a exploration of how such a framework might look, it would leverage NATS
 This is very early days, it was written primarily to see if it's possible to create a [gRPC](https://grpc.io/) like
 service framework using the NATS Micro feature.
 
-At present each function in the service runs as an isolated service, this is not ideal and this
-feedback is being incorporated in the NATS service design to support multiple handlers per single
-service.
-
-Once the above feedback is implemented this plugin will get a major update to be deployed in that manner
-which will be more efficient and easier to manage in reality.
-
 ## Example
 
 ### Generating types, services and tools
@@ -140,11 +133,12 @@ type request interface {
     Logger() *logrus.Entry
     Conn() *nats.Conn
     Request() *micro.Request
+    ClientVersion() string
 }
 
 func ExpressionHandler(ctx context.Context, req service.ExpressionRequest) (*service.CalcResponse, error) {
     helper := ctx.Value("nmfw").(request)
-	log := helper.Logger()
+    log := helper.Logger()
 	
     log.Infof("Calculating expression %s", req.Expression)
     
@@ -228,11 +222,11 @@ There are some limitations at present given the young age of this project:
 
  * Support more `.proto` file behaviors
  * Support streaming responses
- * Pass a context to the handlers that include logger and nats connection
+ * ~~Pass a context to the handlers that include logger and nats connection~~
  * More observability, possibly propagate tracing headers
  * Generate a Dockerfile to host the service
  * Generate `Makefile` or similar to rebuild the generated code and containers
- * One `micro` per Service
+ * ~~One `micro` per Service~~
  * ~~Think about timeout, some functions have different timeouts than others, how to handle?~~ Propagated using the `Nmfw-Deadline` header and passed to handlers as a `context.Context`.
  * Include the proto schema and expose over the `micro` schemas feature
 

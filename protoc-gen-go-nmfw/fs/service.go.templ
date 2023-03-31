@@ -130,6 +130,7 @@ func (s *{{ $svcTypeName }}Service) start(wg *sync.WaitGroup, nc *nats.Conn) {
 			s.Log.Errorf("Encountered an error: %v", natsError)
 			errorsCtr.WithLabelValues(s.Name, "{{ .GoName }}").Inc()
 		},
+		Metadata: map[string]string{},
 	})
 	if err != nil {
 		panic(fmt.Sprintf("could not create service: %v", err))
@@ -179,7 +180,7 @@ func (c *{{ $svcTypeName }}Client) {{.GoName}}(ctx context.Context, req {{ .Inpu
 	to, cancel := context.WithTimeout(ctx, time.Until(deadline))
 	defer cancel()
 
-	msg := nats.NewMsg("nmfw.calc.{{ .GoName }}")
+	msg := nats.NewMsg("nmfw.{{$svcTypeName | toLower}}.{{ .GoName }}")
 	msg.Data = rb
 	msg.Header.Add("Nmfw-Deadline", deadline.Format(time.RFC3339))
 	msg.Header.Add("Nmfw-Version", "{{$nmfwVersion}}")
